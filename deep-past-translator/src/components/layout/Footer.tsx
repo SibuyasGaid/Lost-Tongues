@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Lock } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -26,8 +27,11 @@ export default function Footer() {
           </div>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-8 pt-6 border-t border-warm-white/10 text-center text-sm text-warm-white/40">
-        Built by Charles Luis Gaid · Inspired by the Kaggle Deep Past Challenge
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-8 pt-6 border-t border-warm-white/10 flex items-center justify-center gap-3 text-sm text-warm-white/40">
+        <span>Built by Charles Luis Gaid · Inspired by the Kaggle Deep Past Challenge</span>
+        <Link to="/admin" className="p-1 rounded hover:text-warm-white/20 transition-colors text-warm-white/10" aria-label="Admin">
+          <Lock size={12} />
+        </Link>
       </div>
     </footer>
   );
