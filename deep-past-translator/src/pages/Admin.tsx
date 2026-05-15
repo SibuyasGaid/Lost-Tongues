@@ -553,8 +553,6 @@ const SLIDES = [
   },
 ];
 
-const SLIDE_ICONS = [Trophy, Trophy, AlertTriangle, Cpu, Database, Layers, Shuffle, Server, BarChart2, Rocket];
-
 // ── Password gate ─────────────────────────────────────────────────────────────
 function PasswordGate({ onSuccess }: { onSuccess: () => void }) {
   const [value, setValue] = useState('');
