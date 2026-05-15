@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Copy, RefreshCw, Info, CheckCircle } from 'lucide-react';
+import { ChevronDown, Copy, RefreshCw, Info, CheckCircle, Library } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { LANGUAGES, EXAMPLE_PHRASES } from '../lib/constants';
 import { getPreprocessSteps } from '../lib/preprocess';
 import { useTranslation } from '../hooks/useTranslation';
 import { cn } from '../lib/utils';
+import PhraseModal, { type AkkadianPhrase } from '../components/translate/PhraseModal';
 
 export default function Translate() {
   const [searchParams] = useSearchParams();
@@ -14,11 +15,27 @@ export default function Translate() {
   const [inputText, setInputText] = useState('');
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // Full phrase list loaded for exact-match lookup
+  const [allPhrases, setAllPhrases] = useState<AkkadianPhrase[]>([]);
+  const phrasesLoaded = useRef(false);
+
   const { output, isLoading, error, isCached, doTranslate } = useTranslation();
 
+  // Pre-load all Akkadian phrases for exact-match lookup
   useEffect(() => {
-    if (inputText) doTranslate(inputText, selectedLang.id);
-  }, [inputText, selectedLang.id]);
+    if (phrasesLoaded.current) return;
+    phrasesLoaded.current = true;
+    fetch('/akkadian-phrases.json')
+      .then(r => r.json())
+      .then(setAllPhrases)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (inputText) doTranslate(inputText, selectedLang.id, allPhrases);
+  }, [inputText, selectedLang.id, allPhrases]);
 
   const preprocessSteps =
     selectedLang.id === 'akkadian' && inputText ? getPreprocessSteps(inputText) : [];
@@ -27,6 +44,10 @@ export default function Translate() {
     navigator.clipboard.writeText(output);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handlePhraseSelect = (phrase: AkkadianPhrase) => {
+    setInputText(phrase.akkadian);
   };
 
   return (
@@ -50,10 +71,7 @@ export default function Translate() {
           {LANGUAGES.map(lang => (
             <button
               key={lang.id}
-              onClick={() => {
-                setSelectedLang(lang);
-                setInputText('');
-              }}
+              onClick={() => { setSelectedLang(lang); setInputText(''); }}
               className={cn(
                 'flex items-center gap-2 px-4 py-2 rounded-full border-2 font-semibold text-sm transition-all',
                 selectedLang.id === lang.id
@@ -83,7 +101,7 @@ export default function Translate() {
         </div>
 
         {/* Translation panes */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
           {/* Input */}
           <div className="rounded-2xl border border-amber/20 overflow-hidden bg-white dark:bg-near-black/50">
             <div className="px-4 py-3 border-b border-amber/10 flex items-center gap-3">
@@ -100,7 +118,7 @@ export default function Translate() {
               onChange={e => setInputText(e.target.value)}
               placeholder={
                 selectedLang.id === 'akkadian'
-                  ? 'Enter Akkadian transliteration...'
+                  ? 'Enter Akkadian transliteration, or browse all phrases below...'
                   : `Enter ${selectedLang.name} text...`
               }
               className="w-full h-48 p-4 bg-transparent resize-none font-mono text-sm focus:outline-none placeholder-near-black/30 dark:placeholder-warm-white/20"
@@ -121,11 +139,9 @@ export default function Translate() {
               </div>
               {output && (
                 <button onClick={handleCopy} className="p-1.5 rounded-lg hover:bg-teal/10 transition-colors">
-                  {copied ? (
-                    <CheckCircle size={16} className="text-green-500" />
-                  ) : (
-                    <Copy size={16} className="text-near-black/50" />
-                  )}
+                  {copied
+                    ? <CheckCircle size={16} className="text-green-500" />
+                    : <Copy size={16} className="text-near-black/50" />}
                 </button>
               )}
             </div>
@@ -136,7 +152,10 @@ export default function Translate() {
                   <span className="text-near-black/40 dark:text-warm-white/30 text-sm">Translating...</span>
                 </div>
               ) : error ? (
-                <div className="text-coral text-sm">{error}</div>
+                <div className="flex items-start gap-2 text-coral text-sm">
+                  <Info size={15} className="flex-shrink-0 mt-0.5" />
+                  {error}
+                </div>
               ) : output ? (
                 <p className="text-near-black dark:text-warm-white leading-relaxed">{output}</p>
               ) : (
@@ -148,7 +167,27 @@ export default function Translate() {
           </div>
         </div>
 
-        {/* Breakdown section */}
+        {/* Browse All Phrases button — Akkadian only */}
+        <AnimatePresence>
+          {selectedLang.id === 'akkadian' && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="flex justify-center mb-6"
+            >
+              <button
+                onClick={() => setModalOpen(true)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-amber/30 bg-amber/5 hover:bg-amber/10 text-amber font-semibold text-sm transition-all hover:border-amber/50"
+              >
+                <Library size={16} />
+                Browse All {allPhrases.length > 0 ? `${allPhrases.length.toLocaleString()} ` : ''}Phrases
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Akkadian preprocessing breakdown */}
         {selectedLang.id === 'akkadian' && inputText && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <button
@@ -204,6 +243,13 @@ export default function Translate() {
           </motion.div>
         )}
       </div>
+
+      {/* Phrase modal */}
+      <PhraseModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSelect={handlePhraseSelect}
+      />
     </div>
   );
 }

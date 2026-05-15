@@ -11,7 +11,8 @@ const LEGACY_BASE = import.meta.env.DEV
 
 const API_TOKEN = import.meta.env.VITE_HF_API_TOKEN || '';
 
-import { MODEL_MAP, AKKADIAN_CACHED_TRANSLATIONS, LANGUAGE_PHRASE_CACHE } from './constants';
+import { MODEL_MAP, LANGUAGE_PHRASE_CACHE } from './constants';
+import type { AkkadianPhrase } from '../components/translate/PhraseModal';
 
 // Thrown when a model has no inference support on either endpoint
 class NoInferenceSupport extends Error {
@@ -77,19 +78,21 @@ async function callHF(modelId: string, text: string, retries = 3): Promise<strin
 
 export async function translate(
   text: string,
-  languageId: string
+  languageId: string,
+  allPhrases: AkkadianPhrase[] = [],
 ): Promise<{ text: string; cached: boolean }> {
   const modelId = MODEL_MAP[languageId];
 
   if (languageId === 'akkadian') {
-    const cached = AKKADIAN_CACHED_TRANSLATIONS.find(
-      t => t.input.toLowerCase().trim() === text.toLowerCase().trim()
-    );
-    if (cached) return { text: cached.output, cached: true };
+    const key = text.toLowerCase().trim();
+    // Search full phrase list first (1,561 pairs from train.csv)
+    const match = allPhrases.find(p => p.akkadian.toLowerCase().trim() === key);
+    if (match) return { text: match.english, cached: true };
 
+    // No match — show friendly message
     if (modelId === 'PLACEHOLDER_AKKADIAN_MODEL') {
       return {
-        text: "This phrase isn't in our demo database. Deploy your own Akkadian model to translate any text!",
+        text: "This phrase doesn't match any known translation. Please try again, or browse all phrases!",
         cached: true,
       };
     }
